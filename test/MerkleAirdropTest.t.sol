@@ -4,8 +4,10 @@ pragma solidity ^0.8.25;
 import {Test, console} from "forge-std/Test.sol";
 import {MerkleAirdrop} from "../src/MerkleAirdrop.sol";
 import {AirToken} from "../src/AirToken.sol";
+import {ZkSyncChainChecker} from "lib/foundry-devops/src/ZkSyncChainChecker.sol";
+import {DeployMerkleAirdrop} from "script/DeployMerkleAirdrop.s.sol";
 
-contract MerkleAirdropTest is Test {
+contract MerkleAirdropTest is ZkSyncChainChecker, Test {
     MerkleAirdrop public airdrop;
     AirToken public token;
     bytes32 public ROOT =
@@ -21,11 +23,17 @@ contract MerkleAirdropTest is Test {
     uint256 userPrivateKey;
 
     function setUp() external {
-        token = new AirToken();
-        airdrop = new MerkleAirdrop(ROOT, token);
+        if (!isZkSyncChain()) {
+            DeployMerkleAirdrop deployer = new DeployMerkleAirdrop();
+            (airdrop, token) = deployer.run();
+        } else {
+            token = new AirToken();
+            airdrop = new MerkleAirdrop(ROOT, token);
+            token.mint(token.owner(), AMOUNT_TO_TRANSFER);
+            token.transfer(address(airdrop), AMOUNT_TO_TRANSFER);
+        }
+
         (user, userPrivateKey) = makeAddrAndKey("user");
-        token.mint(token.owner(), AMOUNT_TO_TRANSFER);
-        token.transfer(address(airdrop), AMOUNT_TO_TRANSFER);
     }
 
     function testUsersCanCliam() external {
